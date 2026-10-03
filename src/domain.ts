@@ -1,0 +1,14 @@
+import {z} from 'zod';
+export const uuid=z.string().uuid();
+const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,'Fecha inválida');
+export const farmSchema=z.object({organization_id:uuid,name:z.string().trim().min(1).max(150),latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180),timezone:z.enum(['America/Guayaquil','Pacific/Galapagos']).default('America/Guayaquil')});
+const position=z.tuple([z.number().min(-180).max(180),z.number().min(-90).max(90)]);
+const ring=z.array(position).min(4).refine(v=>v[0][0]===v[v.length-1][0]&&v[0][1]===v[v.length-1][1],'El anillo debe estar cerrado');
+export const geometrySchema=z.discriminatedUnion('type',[z.object({type:z.literal('Polygon'),coordinates:z.array(ring).min(1)}),z.object({type:z.literal('MultiPolygon'),coordinates:z.array(z.array(ring).min(1)).min(1)})]);
+export const parcelSchema=z.object({organization_id:uuid,farm_id:uuid,name:z.string().trim().min(1).max(150),geometry:geometrySchema});
+export const seasonSchema=z.object({organization_id:uuid,parcel_id:uuid,crop:z.string().min(1).max(100),variety:z.string().max(100).nullable().optional(),start_date:date,end_date:date.nullable().optional(),status:z.enum(['planned','active','completed']).default('active')});
+export const eventSchema=z.object({organization_id:uuid,parcel_id:uuid,season_id:uuid.nullable().optional(),type:z.enum(['irrigation','fertilization','treatment','inspection','harvest','note']),event_date:date,notes:z.string().max(10000).default(''),product:z.string().max(200).nullable().optional(),dose:z.number().nonnegative().nullable().optional(),unit:z.string().max(30).nullable().optional(),cost_usd:z.number().nonnegative().nullable().optional()});
+export const attachmentSchema=z.object({mime_type:z.enum(['image/jpeg','image/png','image/webp']),size_bytes:z.number().int().positive().max(10*1024*1024)});
+export function csvCell(value:unknown){let s=String(value??'');if(/^[\s]*[=+\-@]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';}
+export function imageMime(bytes:Uint8Array){if(bytes[0]===255&&bytes[1]===216&&bytes[2]===255)return'image/jpeg';if(Buffer.from(bytes.slice(0,8)).equals(Buffer.from([137,80,78,71,13,10,26,10])))return'image/png';if(Buffer.from(bytes.slice(0,4)).toString()==='RIFF'&&Buffer.from(bytes.slice(8,12)).toString()==='WEBP')return'image/webp';return null;}
+export function ndviWindow(input:unknown){const p=z.object({from_date:date.optional(),to_date:date.optional()}).parse(input||{});const to=p.to_date||new Date().toISOString().slice(0,10);const from=p.from_date||new Date(Date.parse(to)-90*86400000).toISOString().slice(0,10);if(from>to||Date.parse(to)-Date.parse(from)>366*86400000||to>new Date().toISOString().slice(0,10))throw Object.assign(new Error('Intervalo NDVI inválido; máximo 366 días hasta hoy'),{statusCode:400});return{from,to};}

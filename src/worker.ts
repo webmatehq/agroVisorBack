@@ -1,0 +1,25 @@
+import {adminClient,checked,resource} from './db.js';
+import {satelliteConfigured} from './config.js';
+import {satelliteStatistics,satelliteImage,ProviderError} from './providers.js';
+if(!satelliteConfigured())throw new Error('Worker requiere Supabase service role y credenciales CDSE');
+const db=adminClient();let running=true;let scheduled=0;
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{running=false;});
+while(running){
+ try{
+ if(Date.now()-scheduled>3600000){checked(await db.rpc('schedule_ndvi_jobs'));scheduled=Date.now();}
+ const job=checked(await db.rpc('claim_processing_job'));
+ if(!job?.id){await new Promise(r=>setTimeout(r,5000));continue;}
+ try{
+ const parcel=await resource(db,'parcels',job.parcel_id);
+ if(parcel.geometry_version!==job.geometry_version)throw new ProviderError('La geometría ha cambiado',false);
+ const rows=await satelliteStatistics(parcel.geometry_geojson,job.from_date,job.to_date);
+ for(const row of rows){
+ let raster_path:string|null=null,bounds:number[]|null=null;
+ if(row.valid_fraction>0){const image=await satelliteImage(parcel.geometry_geojson,row.from_date,row.to_date);raster_path=`${job.organization_id}/${parcel.id}/${job.geometry_version}/${row.from_date}-${job.lease_token}.png`;bounds=image.bounds;checked(await db.storage.from('ndvi-rasters').upload(raster_path,image.bytes,{contentType:'image/png',upsert:true}));}
+ const committed=checked(await db.rpc('commit_satellite_observation',{p_job_id:job.id,p_lease_token:job.lease_token,p_observation:{...row,raster_path,bounds,processing_version:'ndvi-v1'}}));
+ if(!committed){if(raster_path)await db.storage.from('ndvi-rasters').remove([raster_path]);throw new ProviderError('Trabajo caducado o geometría obsoleta',false);}
+ }
+ checked(await db.rpc('complete_processing_job',{p_id:job.id,p_lease_token:job.lease_token,p_error:null,p_retry:false}));
+ }catch(error){const retry=!(error instanceof ProviderError)||error.retryable;const message=error instanceof ProviderError?error.message:'Fallo temporal de procesamiento';checked(await db.rpc('complete_processing_job',{p_id:job.id,p_lease_token:job.lease_token,p_error:message,p_retry:retry}));console.error(JSON.stringify({job_id:job.id,error:message}));}
+ }catch{console.error('Worker no pudo consultar la cola; reintentando');await new Promise(r=>setTimeout(r,10000));}
+}

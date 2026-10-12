@@ -1,0 +1,28 @@
+# Solo API gratuita. El worker continúa ejecutándose en el ordenador del propietario.
+services:
+  - type: web
+    name: agrovisor-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: https://agrovisor-demo.rushr-1804.chatgpt.site,http://localhost:5173
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CDSE_CLIENT_ID
+        sync: false
+      - key: CDSE_CLIENT_SECRET
+        sync: false
+      - key: NDVI_VALID_THRESHOLD
+        value: '0.7'

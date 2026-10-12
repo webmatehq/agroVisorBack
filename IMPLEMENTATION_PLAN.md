@@ -1,4 +1,4 @@
-# AgroVisor: piloto web real para Ecuador
+# SurcoVisor: piloto web real para Ecuador
 
 ## Objetivo y alcance
 Completar una web con cuentas reales, explotaciones separadas, fincas, parcelas geográficas, campañas, labores, fotos privadas, meteorología por ubicación y NDVI con histórico. Español, USD, hectáreas, mm, °C; zona de finca America/Guayaquil por defecto y Pacific/Galapagos seleccionable. Sin app móvil, sensores, facturación, diagnóstico agronómico ni datos inventados. La demo pública anterior permanece independiente. Repositorios nuevos y vacíos, clonados en carpetas hermanas agroVisorFront y agroVisorBack.

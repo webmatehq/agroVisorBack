@@ -14,7 +14,7 @@ declare module 'fastify' {interface FastifyRequest {db:SupabaseClient;user:User}
 async function optionalSignedUrl(db:SupabaseClient,path:string|null){if(!path)return null;try{const result=await db.storage.from('ndvi-rasters').createSignedUrl(path,300);return result.error?null:result.data.signedUrl}catch{return null}}
 export async function buildApp(){
  const app=Fastify({logger:{redact:['req.headers.authorization','req.headers.cookie']},bodyLimit:128*1024});
- await app.register(cors,{origin:config.origins});await app.register(rateLimit,{max:120,timeWindow:'1 minute'});
+ await app.register(cors,{origin:config.origins,methods:['GET','HEAD','POST','PATCH','DELETE','OPTIONS'],allowedHeaders:['Authorization','Content-Type']});await app.register(rateLimit,{max:120,timeWindow:'1 minute'});
  await app.register(swagger,{openapi:{info:{title:'SurcoVisor API',version:'1.0.0'},components:{securitySchemes:{bearerAuth:{type:'http',scheme:'bearer'}}},security:[{bearerAuth:[]}]}});
  await app.register(swaggerUI,{routePrefix:'/docs'});
  app.setErrorHandler((error:any,req,reply)=>{const status=error instanceof z.ZodError?400:error.statusCode||500;if(status>=500)req.log.error({requestId:req.id,errorName:error.name},'Solicitud fallida');reply.code(status).send({error:status===500?'Error interno':error.message,request_id:req.id,...(error instanceof z.ZodError?{details:error.issues}: {})});});

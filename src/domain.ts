@@ -1,7 +1,7 @@
 import {z} from 'zod';
 export const uuid=z.string().uuid();
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,'Fecha inválida');
-export const farmSchema=z.object({organization_id:uuid,name:z.string().trim().min(1).max(150),latitude:z.number().min(-90).max(90),longitude:z.number().min(-180).max(180),timezone:z.enum(['America/Guayaquil','Pacific/Galapagos','America/Argentina/Buenos_Aires','America/Argentina/Cordoba']).default('America/Guayaquil')});
+export const farmSchema=z.object({organization_id:uuid,name:z.string().trim().min(1).max(150)});
 const position=z.tuple([z.number().min(-180).max(180),z.number().min(-90).max(90)]);
 const ring=z.array(position).min(4).refine(v=>v[0][0]===v[v.length-1][0]&&v[0][1]===v[v.length-1][1],'El anillo debe estar cerrado');
 export const geometrySchema=z.discriminatedUnion('type',[z.object({type:z.literal('Polygon'),coordinates:z.array(ring).min(1)}),z.object({type:z.literal('MultiPolygon'),coordinates:z.array(z.array(ring).min(1)).min(1)})]);
